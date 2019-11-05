@@ -1,0 +1,105 @@
+body {
+    background-color: lightgray;
+    font-family: cursive;
+  }
+  
+  input[type=text], input[type=number], input[type=email], select {
+    width: 70%;
+    height: 25px;
+    background-color: lightgray;
+    border-bottom: medium;
+  }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  }
+  
+  input[type=submit],input[type=button]:hover {
+    background-color: green;
+    font-weight: bold;
+    color:black;
+     border: none;
+  }
+  input[type=reset]:hover {
+    background-color: orange;
+    font-weight: bold;
+    color:black;
+     border: none;
+  }
+  input[type=submit],[type=reset],input[type=button]{
+    background-color:black;
+    color:white;
+    font-weight: bold;
+    width:100px;
+    height:30px;
+    border: none;
+    border-radius: 10px;
+  }
+  
+  #myForm {
+    border-radius:20px;
+    padding: 20px;
+    width: 40%;
+    margin: auto;
+    background-color: white;
+  }
+  #vehicle_form{
+    border:2px solid black;
+    padding:10px;
+    width:50%;
+    margin:auto;
+    background-color: orange;
+  }
+  div.scrollmenu {
+  background-color: #333;
+  overflow: auto;
+  white-space: nowrap;
+  border-radius: 5px;
+  }
+  
+  div.scrollmenu a {
+  display: inline-block;
+  color: white;
+  text-align: center;
+  padding-left: 22px;
+  padding-right:22px;
+  padding-bottom:7px;
+  padding-top:7px;
+  text-decoration : none;
+  border-radius: 5px;
+  }
+  
+  div.scrollmenu a:focus{
+  background-color: white;
+  color: black;
+  }
+  div.scrollmenu a:hover {
+  background-color: #777;
+  }
+  #apply:hover{
+    background-color:orange;
+    color: black;
+  }
+  .right {
+    float: right;
+  }
+  
+  .center {
+    margin: auto;
+    width: 25%;
+  }
+  
+  .err_msg {
+    color: crimson;
+    padding: 5px;
+    display: none;
+  }
+  
+  .ex_mark {
+    color: crimson;
+    padding-right: 5px;
+    padding-left: 5px;
+    font-style: italic;
+    font-weight: 100px;
+    font-size: 15px;
+  }
