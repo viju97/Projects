@@ -37,7 +37,7 @@ jobs:
       # Validation
       # --------------------
       - name: Validate environment
-        shell: pwsh
+        shell: powershell
         run: |
           $envInput = "${{ inputs.environment }}"
           Write-Host "Environment: $envInput"
@@ -47,7 +47,7 @@ jobs:
           }
 
       - name: Validate update_mode
-        shell: pwsh
+        shell: powershell
         run: |
           $modeInput = "${{ inputs.update_mode }}"
           Write-Host "Update mode: $modeInput"
@@ -58,7 +58,7 @@ jobs:
 
       - name: Validate test_path (if specific)
         if: ${{ inputs.update_mode == 'specific' }}
-        shell: pwsh
+        shell: powershell
         run: |
           $testPath = "${{ inputs.test_path }}"
           Write-Host "Test path: $testPath"
@@ -77,7 +77,7 @@ jobs:
       # Ensure base branch exists locally
       # --------------------
       - name: Ensure master exists locally
-        shell: pwsh
+        shell: powershell
         run: |
           git fetch origin master:master
 
@@ -85,7 +85,7 @@ jobs:
       # Create dummy commit (replace with snapshot updates later)
       # --------------------
       - name: Create dummy change
-        shell: pwsh
+        shell: powershell
         run: |
           $file = "dummy_update_${{ github.run_id }}.txt"
           Set-Content -Path $file -Value "Updated at $(Get-Date)"
