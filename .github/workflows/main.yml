@@ -114,16 +114,10 @@ jobs:
           base: master
           title: "Update visual snapshots from ${{ inputs.environment }}"
           commit-message: "Update visual snapshots from ${{ inputs.environment }}"
+          skip-fetch: true
           body: |
             ## Visual Snapshot Update
-
-            This PR updates visual regression test snapshots.
-
-            ### Details
-            - Environment: ${{ inputs.environment }}
-            - Update Mode: ${{ inputs.update_mode }}
-            - Triggered by: @${{ github.actor }}
-
-            ### Review Checklist
-            - [ ] Review changes
-            - [ ] Confirm correct environment
+      
+            Environment: ${{ inputs.environment }}
+            Update Mode: ${{ inputs.update_mode }}
+            Triggered by: @${{ github.actor }}
