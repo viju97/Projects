@@ -1,4 +1,4 @@
-name: "Update Visual Snapshots"
+name: "Test Visual Snapshot PR"
 
 on:
   workflow_dispatch:
@@ -11,6 +11,7 @@ on:
         options:
           - staging
           - production
+
       update_mode:
         description: "Update all tests or specific test?"
         required: true
@@ -19,6 +20,7 @@ on:
         options:
           - all
           - specific
+
       test_path:
         description: "Test file path (only for specific mode)"
         required: false
@@ -29,19 +31,18 @@ permissions:
   pull-requests: write
 
 jobs:
-  update_snapshots:
+  test-pr:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
       # --------------------
-      # Clean Checkout (VERY IMPORTANT for self-hosted)
+      # Checkout (clean for self-hosted)
       # --------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           clean: true
-          persist-credentials: true
 
       # --------------------
       # Configure Git
@@ -62,6 +63,10 @@ jobs:
           $modeInput = "${{ inputs.update_mode }}"
           $testPath = "${{ inputs.test_path }}"
 
+          Write-Host "Environment: $envInput"
+          Write-Host "Mode: $modeInput"
+          Write-Host "Test Path: $testPath"
+
           if ($envInput -notin @("staging", "production")) {
               Write-Error "Invalid environment"
               exit 1
@@ -73,70 +78,41 @@ jobs:
           }
 
           if ($modeInput -eq "specific" -and -not $testPath) {
-              Write-Error "test_path required for specific mode"
+              Write-Error "test_path is required when mode is 'specific'"
               exit 1
           }
 
       # --------------------
-      # Replace With Your Snapshot Command
+      # Create Dummy File (for PR test)
       # --------------------
-      - name: Run Snapshot Update (Replace This)
+      - name: Create Dummy Change
         shell: powershell
         run: |
-          # Example:
-          # npm ci
-          # npx playwright test --update-snapshots
-          
-          # Dummy file for testing
-          $file = "dummy_update_${{ github.run_id }}.txt"
-          Set-Content -Path $file -Value "Updated at $(Get-Date)"
-          git add .
+          $file = "test_pr_${{ github.run_id }}.txt"
+          Set-Content -Path $file -Value @"
+            Environment: ${{ inputs.environment }}
+            Mode: ${{ inputs.update_mode }}
+            Test Path: ${{ inputs.test_path }}
+            Run ID: ${{ github.run_id }}
+            Timestamp: $(Get-Date)
+            "@
+                      git add .
+                      git commit -m "Test PR from ${{ inputs.environment }}"
 
       # --------------------
-      # Commit If Changes Exist
-      # --------------------
-      - name: Commit changes if any
-        id: commit_step
-        shell: powershell
-        run: |
-          $changes = git status --porcelain
-          if ($changes) {
-              git commit -m "Update visual snapshots from ${{ inputs.environment }}"
-              echo "changes=true" >> $env:GITHUB_OUTPUT
-          } else {
-              Write-Host "No changes to commit"
-              echo "changes=false" >> $env:GITHUB_OUTPUT
-          }
-
-      # --------------------
-      # Ensure No Stale 'fork' Remote (Fix for Windows Self-Hosted)
-      # --------------------
-      - name: Clean Git remotes
-        if: steps.commit_step.outputs.changes == 'true'
-        shell: powershell
-        run: |
-          $remotes = git remote
-          if ($remotes -contains "fork") {
-              git remote rm fork
-          }
-
-      # --------------------
-      # Create Pull Request
+      # Create Pull Request (Simple Version)
       # --------------------
       - name: Create Pull Request
-        if: steps.commit_step.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ci/update-${{ github.run_id }}
+          branch: test-pr-${{ github.run_id }}
           base: master
-          delete-branch: true
-          title: "Update visual snapshots from ${{ inputs.environment }}"
+          title: "Test PR from ${{ inputs.environment }}"
           body: |
-            ## Visual Snapshot Update
+            ## Test Pull Request
 
             Environment: ${{ inputs.environment }}
             Mode: ${{ inputs.update_mode }}
+            Test Path: ${{ inputs.test_path }}
             Triggered by: @${{ github.actor }}
-
-            Please review snapshot changes carefully.
