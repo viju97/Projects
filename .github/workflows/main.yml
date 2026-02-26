@@ -104,4 +104,4 @@ jobs:
             ### Review Checklist
             - [ ] Review snapshot differences
             - [ ] Confirm snapshots were captured from the correct environment
-          base: main
+          base: master
