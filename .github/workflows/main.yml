@@ -20,7 +20,7 @@ on:
           - all
           - specific
       test_path:
-        description: "Test file path (only for specific mode). Example: tests/flows/SIMskills/dashboard.spec.ts"
+        description: "Test file path (only for specific mode)"
         required: false
         type: string
 
@@ -34,46 +34,14 @@ jobs:
 
     steps:
       # --------------------
-      # Validate Inputs
-      # --------------------
-      - name: Validate environment
-        shell: powershell
-        run: |
-          $envInput = "${{ inputs.environment }}"
-          Write-Host "Environment: $envInput"
-          if ($envInput -ne "staging" -and $envInput -ne "production") {
-              Write-Error "Invalid environment. Must be 'staging' or 'production'."
-              exit 1
-          }
-
-      - name: Validate update_mode
-        shell: powershell
-        run: |
-          $modeInput = "${{ inputs.update_mode }}"
-          Write-Host "Update mode: $modeInput"
-          if ($modeInput -ne "all" -and $modeInput -ne "specific") {
-              Write-Error "Invalid update_mode. Must be 'all' or 'specific'."
-              exit 1
-          }
-
-      - name: Validate test_path (if specific)
-        if: ${{ inputs.update_mode == 'specific' }}
-        shell: powershell
-        run: |
-          $testPath = "${{ inputs.test_path }}"
-          Write-Host "Test path: $testPath"
-          if (-not $testPath) {
-              Write-Error "test_path is required when update_mode is 'specific'."
-              exit 1
-          }
-
-      # --------------------
-      # Checkout
+      # Clean Checkout (VERY IMPORTANT for self-hosted)
       # --------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          clean: true
+          persist-credentials: true
 
       # --------------------
       # Configure Git
@@ -85,18 +53,47 @@ jobs:
           git config user.email "github-actions@github.com"
 
       # --------------------
-      # (Replace This With Actual Snapshot Update Command)
-      # Example: npx playwright test --update-snapshots
+      # Validate Inputs
       # --------------------
-      - name: Create dummy change (replace with real snapshot command)
+      - name: Validate Inputs
         shell: powershell
         run: |
+          $envInput = "${{ inputs.environment }}"
+          $modeInput = "${{ inputs.update_mode }}"
+          $testPath = "${{ inputs.test_path }}"
+
+          if ($envInput -notin @("staging", "production")) {
+              Write-Error "Invalid environment"
+              exit 1
+          }
+
+          if ($modeInput -notin @("all", "specific")) {
+              Write-Error "Invalid update_mode"
+              exit 1
+          }
+
+          if ($modeInput -eq "specific" -and -not $testPath) {
+              Write-Error "test_path required for specific mode"
+              exit 1
+          }
+
+      # --------------------
+      # Replace With Your Snapshot Command
+      # --------------------
+      - name: Run Snapshot Update (Replace This)
+        shell: powershell
+        run: |
+          # Example:
+          # npm ci
+          # npx playwright test --update-snapshots
+          
+          # Dummy file for testing
           $file = "dummy_update_${{ github.run_id }}.txt"
           Set-Content -Path $file -Value "Updated at $(Get-Date)"
           git add .
 
       # --------------------
-      # Commit Only If Changes Exist
+      # Commit If Changes Exist
       # --------------------
       - name: Commit changes if any
         id: commit_step
@@ -112,7 +109,19 @@ jobs:
           }
 
       # --------------------
-      # Create Pull Request (only if changes exist)
+      # Ensure No Stale 'fork' Remote (Fix for Windows Self-Hosted)
+      # --------------------
+      - name: Clean Git remotes
+        if: steps.commit_step.outputs.changes == 'true'
+        shell: powershell
+        run: |
+          $remotes = git remote
+          if ($remotes -contains "fork") {
+              git remote rm fork
+          }
+
+      # --------------------
+      # Create Pull Request
       # --------------------
       - name: Create Pull Request
         if: steps.commit_step.outputs.changes == 'true'
@@ -121,19 +130,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ci/update-${{ github.run_id }}
           base: master
+          delete-branch: true
           title: "Update visual snapshots from ${{ inputs.environment }}"
-          commit-message: "Update visual snapshots from ${{ inputs.environment }}"
           body: |
             ## Visual Snapshot Update
 
-            This PR updates visual regression test snapshots captured from the **${{ inputs.environment }}** environment.
+            Environment: ${{ inputs.environment }}
+            Mode: ${{ inputs.update_mode }}
+            Triggered by: @${{ github.actor }}
 
-            ### Details
-            - Environment: ${{ inputs.environment }}
-            - Update Mode: ${{ inputs.update_mode }}
-            - Triggered by: @${{ github.actor }}
-
-            ### Review Checklist
-            - [ ] Review changes
-            - [ ] Confirm snapshots were captured from the correct environment
-          push-to-fork: false
+            Please review snapshot changes carefully.
