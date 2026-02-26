@@ -1,0 +1,121 @@
+name: "Update Visual Snapshots"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to capture snapshots from'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+      update_mode:
+        description: 'Update all tests or specific test?'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - specific
+      test_path:
+        description: 'Test file path (only for specific mode)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update_snapshots:
+    runs-on: [self-hosted, Windows, X64]
+
+    steps:
+      # --- Validate environment ---
+      - name: Validate environment input
+        run: |
+          $environment = "${{ inputs.environment }}"
+          Write-Host "Environment: $environment"
+          if ($environment -ne "staging" -and $environment -ne "production") {
+              Write-Error "Invalid environment. Must be 'staging' or 'production'."
+              exit 1
+          }
+
+      # --- Validate update_mode ---
+      - name: Validate update_mode input
+        run: |
+          $update_mode = "${{ inputs.update_mode }}"
+          Write-Host "Update mode: $update_mode"
+          if ($update_mode -ne "all" -and $update_mode -ne "specific") {
+              Write-Error "Invalid update_mode. Must be 'all' or 'specific'."
+              exit 1
+          }
+
+      # --- Validate test_path if update_mode is specific ---
+      - name: Validate test_path input
+        if: ${{ inputs.update_mode == 'specific' }}
+        run: |
+          $test_path = "${{ inputs.test_path }}"
+          Write-Host "Test path: $test_path"
+          if (-not $test_path) {
+              Write-Error "test_path is required when update_mode is 'specific'."
+              exit 1
+          }
+
+      # --- Checkout code ---
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Configure Git ---
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # --- Create branch ---
+      - name: Create branch
+        id: branch
+        run: |
+          $branchName = "ci/update-visual-snapshots-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+          Write-Host "Branch name: $branchName"
+          git checkout -b $branchName
+          echo "branch_name=$branchName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+
+      # --- Dummy commit to allow PR creation ---
+      - name: Create dummy change
+        run: |
+          $dummyFile = "dummy_update.txt"
+          Set-Content -Path $dummyFile -Value "Updated at $(Get-Date)"
+          git add $dummyFile
+          git commit -m "Dummy commit for PR creation"
+
+      # --- Push branch ---
+      - name: Push branch
+        run: |
+          git push origin ${{ steps.branch.outputs.branch_name }}
+
+      # --- Create Pull Request ---
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $environment = "${{ inputs.environment }}"
+          $update_mode = "${{ inputs.update_mode }}"
+          $branch = "${{ steps.branch.outputs.branch_name }}"
+          $title = "Update visual snapshots from $environment"
+
+          # Build PR body safely using \n
+          $body = "## Visual Snapshot Update`n`n" +
+                  "This PR updates visual regression test snapshots captured from the **$environment** environment.`n`n" +
+                  "### Details`n" +
+                  "- Environment: $environment`n" +
+                  "- Update Mode: $update_mode`n" +
+                  "- Triggered by: @${{ github.actor }}`n" +
+                  "- Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`n`n" +
+                  "### Review Checklist`n" +
+                  "- [ ] Review snapshot differences`n" +
+                  "- [ ] Confirm snapshots were captured from the correct environment"
+
+          gh pr create --title $title --body $body --base main --head $branch --label "visual-regression" --label "automated-pr"
