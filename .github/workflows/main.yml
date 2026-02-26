@@ -85,19 +85,21 @@ jobs:
       # --------------------
       # Create Dummy File (for PR test)
       # --------------------
-      - name: Create Dummy Change
-        shell: powershell
-        run: |
-          $file = "test_pr_${{ github.run_id }}.txt"
-          Set-Content -Path $file -Value @"
-            Environment: ${{ inputs.environment }}
-            Mode: ${{ inputs.update_mode }}
-            Test Path: ${{ inputs.test_path }}
-            Run ID: ${{ github.run_id }}
-            Timestamp: $(Get-Date)
-            "@
-                      git add .
-                      git commit -m "Test PR from ${{ inputs.environment }}"
+       name: Create Dummy Change
+       shell: powershell
+       run: |
+        $file = "test_pr_${{ github.run_id }}.txt"
+    
+        $content = "Environment: ${{ inputs.environment }}`n" +
+                   "Mode: ${{ inputs.update_mode }}`n" +
+                   "Test Path: ${{ inputs.test_path }}`n" +
+                   "Run ID: ${{ github.run_id }}`n" +
+                   "Timestamp: $(Get-Date)"
+    
+        Set-Content -Path $file -Value $content
+    
+        git add .
+        git commit -m "Test PR from ${{ inputs.environment }}"
 
       # --------------------
       # Create Pull Request (Simple Version)
