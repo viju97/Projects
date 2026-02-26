@@ -4,23 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to capture snapshots from'
+        description: "Environment to capture snapshots from"
         required: true
-        default: 'production'
+        default: "production"
         type: choice
         options:
           - staging
           - production
+
       update_mode:
-        description: 'Update all tests or specific test?'
+        description: "Update all tests or specific test?"
         required: true
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - all
           - specific
+
       test_path:
-        description: 'Test file path (only for specific mode)'
+        description: "Test file path (only for specific mode)"
         required: false
         type: string
 
@@ -33,14 +35,35 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      # --------------------
+
+      # -------------------------
+      # Clean Workspace (Important for self-hosted)
+      # -------------------------
+      - name: Clean workspace
+        run: |
+          git reset --hard
+          git clean -fdx
+        continue-on-error: true
+
+      # -------------------------
+      # Checkout Full Repo
+      # -------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: true
+          persist-credentials: true
+
+      # -------------------------
       # Validation
-      # --------------------
+      # -------------------------
 
       - name: Validate environment
         run: |
           $envInput = "${{ inputs.environment }}"
           Write-Host "Environment: $envInput"
+
           if ($envInput -ne "staging" -and $envInput -ne "production") {
               Write-Error "Invalid environment. Must be staging or production."
               exit 1
@@ -50,6 +73,7 @@ jobs:
         run: |
           $modeInput = "${{ inputs.update_mode }}"
           Write-Host "Update mode: $modeInput"
+
           if ($modeInput -ne "all" -and $modeInput -ne "specific") {
               Write-Error "Invalid update_mode. Must be all or specific."
               exit 1
@@ -60,43 +84,40 @@ jobs:
         run: |
           $testPath = "${{ inputs.test_path }}"
           Write-Host "Test path: $testPath"
+
           if (-not $testPath) {
               Write-Error "test_path is required when update_mode is specific."
               exit 1
           }
 
-      # --------------------
-      # Checkout
-      # --------------------
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with: 
-          fetch-depth: 0
-
-      # --------------------
-      # Dummy change (for demo PR)
-      # --------------------
+      # -------------------------
+      # Create Dummy Change (Ensures PR is created)
+      # -------------------------
 
       - name: Create dummy change
         run: |
-          $file = "dummy_update.txt"
-          Set-Content -Path $file -Value "Updated at $(Get-Date)"
-      
-      # --------------------
+          $file = "dummy_update_${{ github.run_id }}.txt"
+          New-Item -Path $file -ItemType File -Force
+          Add-Content -Path $file -Value "Environment: ${{ inputs.environment }}"
+          Add-Content -Path $file -Value "Mode: ${{ inputs.update_mode }}"
+          Add-Content -Path $file -Value "Triggered at: $(Get-Date)"
+
+      # -------------------------
       # Create Pull Request
-      # --------------------
+      # -------------------------
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ci/update-visual-snapshots-${{ github.run_id }}
+          branch: ci/update-${{ github.run_id }}-${{ github.run_attempt }}
+          base: master
           title: "Update visual snapshots from ${{ inputs.environment }}"
+          commit-message: "Update visual snapshots from ${{ inputs.environment }}"
           body: |
             ## Visual Snapshot Update
 
-            This PR updates visual regression test snapshots captured from the **${{ inputs.environment }}** environment.
+            This PR updates visual regression test snapshots.
 
             ### Details
             - Environment: ${{ inputs.environment }}
@@ -104,6 +125,5 @@ jobs:
             - Triggered by: @${{ github.actor }}
 
             ### Review Checklist
-            - [ ] Review snapshot differences
-            - [ ] Confirm snapshots were captured from the correct environment
-          base: master
+            - [ ] Review changes
+            - [ ] Confirm correct environment
