@@ -4,25 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to capture snapshots from"
+        description: 'Environment to capture snapshots from'
         required: true
-        default: "production"
+        default: 'production'
         type: choice
         options:
           - staging
           - production
-
       update_mode:
-        description: "Update all tests or specific test?"
+        description: 'Update all tests or specific test?'
         required: true
-        default: "all"
+        default: 'all'
         type: choice
         options:
           - all
           - specific
-
       test_path:
-        description: "Test file path (only for specific mode)"
+        description: 'Test file path (only for specific mode). Example: tests/flows/SIMskills/dashboard.spec.ts'
         required: false
         type: string
 
@@ -35,89 +33,87 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-
-      # -------------------------
-      # Clean Workspace (Important for self-hosted)
-      # -------------------------
-      - name: Clean workspace
-        run: |
-          git reset --hard
-          git clean -fdx
-        continue-on-error: true
-
-      # -------------------------
-      # Checkout Full Repo
-      # -------------------------
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          clean: true
-          persist-credentials: true
-
-      # -------------------------
+      # --------------------
       # Validation
-      # -------------------------
-
+      # --------------------
       - name: Validate environment
+        shell: pwsh
         run: |
           $envInput = "${{ inputs.environment }}"
           Write-Host "Environment: $envInput"
-
           if ($envInput -ne "staging" -and $envInput -ne "production") {
-              Write-Error "Invalid environment. Must be staging or production."
+              Write-Error "Invalid environment. Must be 'staging' or 'production'."
               exit 1
           }
 
       - name: Validate update_mode
+        shell: pwsh
         run: |
           $modeInput = "${{ inputs.update_mode }}"
           Write-Host "Update mode: $modeInput"
-
           if ($modeInput -ne "all" -and $modeInput -ne "specific") {
-              Write-Error "Invalid update_mode. Must be all or specific."
+              Write-Error "Invalid update_mode. Must be 'all' or 'specific'."
               exit 1
           }
 
       - name: Validate test_path (if specific)
         if: ${{ inputs.update_mode == 'specific' }}
+        shell: pwsh
         run: |
           $testPath = "${{ inputs.test_path }}"
           Write-Host "Test path: $testPath"
-
           if (-not $testPath) {
-              Write-Error "test_path is required when update_mode is specific."
+              Write-Error "test_path is required when update_mode is 'specific'."
               exit 1
           }
 
-      # -------------------------
-      # Create Dummy Change (Ensures PR is created)
-      # -------------------------
+      # --------------------
+      # Checkout code
+      # --------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # --------------------
+      # Ensure base branch exists locally
+      # --------------------
+      - name: Ensure master exists locally
+        shell: pwsh
+        run: |
+          git fetch origin master:master
+
+      # --------------------
+      # Create dummy commit (replace with snapshot updates later)
+      # --------------------
       - name: Create dummy change
+        shell: pwsh
         run: |
           $file = "dummy_update_${{ github.run_id }}.txt"
-          New-Item -Path $file -ItemType File -Force
-          Add-Content -Path $file -Value "Environment: ${{ inputs.environment }}"
-          Add-Content -Path $file -Value "Mode: ${{ inputs.update_mode }}"
-          Add-Content -Path $file -Value "Triggered at: $(Get-Date)"
+          Set-Content -Path $file -Value "Updated at $(Get-Date)"
+          git add $file
+          git commit -m "Update visual snapshots from ${{ inputs.environment }}" || Write-Host "No changes to commit"
 
-      # -------------------------
-      # Create Pull Request
-      # -------------------------
-
+      # --------------------
+      # Create Pull Request (Windows-safe)
+      # --------------------
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ci/update-${{ github.run_id }}-${{ github.run_attempt }}
+          branch: ci/update-${{ github.run_id }}
           base: master
           title: "Update visual snapshots from ${{ inputs.environment }}"
           commit-message: "Update visual snapshots from ${{ inputs.environment }}"
-          skip-fetch: true
           body: |
             ## Visual Snapshot Update
-      
-            Environment: ${{ inputs.environment }}
-            Update Mode: ${{ inputs.update_mode }}
-            Triggered by: @${{ github.actor }}
+
+            This PR updates visual regression test snapshots captured from the **${{ inputs.environment }}** environment.
+
+            ### Details
+            - Environment: ${{ inputs.environment }}
+            - Update Mode: ${{ inputs.update_mode }}
+            - Triggered by: @${{ github.actor }}
+
+            ### Review Checklist
+            - [ ] Review changes
+            - [ ] Confirm snapshots were captured from the correct environment
+          push-to-fork: false
