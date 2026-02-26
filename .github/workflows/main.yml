@@ -33,89 +33,75 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      # --- Validate environment ---
-      - name: Validate environment input
+      # --------------------
+      # Validation
+      # --------------------
+
+      - name: Validate environment
         run: |
-          $environment = "${{ inputs.environment }}"
-          Write-Host "Environment: $environment"
-          if ($environment -ne "staging" -and $environment -ne "production") {
-              Write-Error "Invalid environment. Must be 'staging' or 'production'."
+          $envInput = "${{ inputs.environment }}"
+          Write-Host "Environment: $envInput"
+          if ($envInput -ne "staging" -and $envInput -ne "production") {
+              Write-Error "Invalid environment. Must be staging or production."
               exit 1
           }
 
-      # --- Validate update_mode ---
-      - name: Validate update_mode input
+      - name: Validate update_mode
         run: |
-          $update_mode = "${{ inputs.update_mode }}"
-          Write-Host "Update mode: $update_mode"
-          if ($update_mode -ne "all" -and $update_mode -ne "specific") {
-              Write-Error "Invalid update_mode. Must be 'all' or 'specific'."
+          $modeInput = "${{ inputs.update_mode }}"
+          Write-Host "Update mode: $modeInput"
+          if ($modeInput -ne "all" -and $modeInput -ne "specific") {
+              Write-Error "Invalid update_mode. Must be all or specific."
               exit 1
           }
 
-      # --- Validate test_path if update_mode is specific ---
-      - name: Validate test_path input
+      - name: Validate test_path (if specific)
         if: ${{ inputs.update_mode == 'specific' }}
         run: |
-          $test_path = "${{ inputs.test_path }}"
-          Write-Host "Test path: $test_path"
-          if (-not $test_path) {
-              Write-Error "test_path is required when update_mode is 'specific'."
+          $testPath = "${{ inputs.test_path }}"
+          Write-Host "Test path: $testPath"
+          if (-not $testPath) {
+              Write-Error "test_path is required when update_mode is specific."
               exit 1
           }
 
-      # --- Checkout code ---
+      # --------------------
+      # Checkout
+      # --------------------
+
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- Configure Git ---
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      # --------------------
+      # Dummy change (for demo PR)
+      # --------------------
 
-      # --- Create branch ---
-      - name: Create branch
-        id: branch
-        run: |
-          $branchName = "ci/update-visual-snapshots-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-          Write-Host "Branch name: $branchName"
-          git checkout -b $branchName
-          echo "branch_name=$branchName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
-
-      # --- Dummy commit to allow PR creation ---
       - name: Create dummy change
         run: |
-          $dummyFile = "dummy_update.txt"
-          Set-Content -Path $dummyFile -Value "Updated at $(Get-Date)"
-          git add $dummyFile
-          git commit -m "Dummy commit for PR creation"
+          $file = "dummy_update.txt"
+          Set-Content -Path $file -Value "Updated at $(Get-Date)"
+      
+      # --------------------
+      # Create Pull Request
+      # --------------------
 
-      # --- Push branch ---
-      - name: Push branch
-        run: |
-          git push origin ${{ steps.branch.outputs.branch_name }}
-
-      # --- Create Pull Request ---
       - name: Create Pull Request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $environment = "${{ inputs.environment }}"
-          $update_mode = "${{ inputs.update_mode }}"
-          $branch = "${{ steps.branch.outputs.branch_name }}"
-          $title = "Update visual snapshots from $environment"
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ci/update-visual-snapshots-${{ github.run_id }}
+          title: "Update visual snapshots from ${{ inputs.environment }}"
+          body: |
+            ## Visual Snapshot Update
 
-          # Build PR body safely using \n
-          $body = "## Visual Snapshot Update`n`n" +
-                  "This PR updates visual regression test snapshots captured from the **$environment** environment.`n`n" +
-                  "### Details`n" +
-                  "- Environment: $environment`n" +
-                  "- Update Mode: $update_mode`n" +
-                  "- Triggered by: @${{ github.actor }}`n" +
-                  "- Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`n`n" +
-                  "### Review Checklist`n" +
-                  "- [ ] Review snapshot differences`n" +
-                  "- [ ] Confirm snapshots were captured from the correct environment"
+            This PR updates visual regression test snapshots captured from the **${{ inputs.environment }}** environment.
 
-          gh pr create --title $title --body $body --base main --head $branch --label "visual-regression" --label "automated-pr"
+            ### Details
+            - Environment: ${{ inputs.environment }}
+            - Update Mode: ${{ inputs.update_mode }}
+            - Triggered by: @${{ github.actor }}
+
+            ### Review Checklist
+            - [ ] Review snapshot differences
+            - [ ] Confirm snapshots were captured from the correct environment
+          base: main
