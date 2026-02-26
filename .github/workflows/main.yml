@@ -74,15 +74,7 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------
-      # Ensure base branch exists locally
-      # --------------------
-      - name: Ensure master exists locally
-        shell: powershell
-        run: |
-          git fetch origin master:master
-
-      # --------------------
-      # Create dummy commit (replace with snapshot updates later)
+      # Create dummy commit (replace with actual snapshot updates later)
       # --------------------
       - name: Create dummy change
         shell: powershell
@@ -93,7 +85,7 @@ jobs:
           git commit -m "Update visual snapshots from ${{ inputs.environment }}" || Write-Host "No changes to commit"
 
       # --------------------
-      # Create Pull Request (Windows-safe)
+      # Create Pull Request
       # --------------------
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
