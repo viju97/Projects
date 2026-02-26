@@ -4,23 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to capture snapshots from'
+        description: "Environment to capture snapshots from"
         required: true
-        default: 'production'
+        default: "production"
         type: choice
         options:
           - staging
           - production
       update_mode:
-        description: 'Update all tests or specific test?'
+        description: "Update all tests or specific test?"
         required: true
-        default: 'all'
+        default: "all"
         type: choice
         options:
           - all
           - specific
       test_path:
-        description: 'Test file path (only for specific mode). Example: tests/flows/SIMskills/dashboard.spec.ts'
+        description: "Test file path (only for specific mode). Example: tests/flows/SIMskills/dashboard.spec.ts"
         required: false
         type: string
 
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       # --------------------
-      # Validation
+      # Validate Inputs
       # --------------------
       - name: Validate environment
         shell: powershell
@@ -68,26 +68,54 @@ jobs:
           }
 
       # --------------------
-      # Checkout code
+      # Checkout
       # --------------------
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # --------------------
-      # Create dummy commit (replace with actual snapshot updates later)
+      # Configure Git
       # --------------------
-      - name: Create dummy change
+      - name: Configure Git
+        shell: powershell
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      # --------------------
+      # (Replace This With Actual Snapshot Update Command)
+      # Example: npx playwright test --update-snapshots
+      # --------------------
+      - name: Create dummy change (replace with real snapshot command)
         shell: powershell
         run: |
           $file = "dummy_update_${{ github.run_id }}.txt"
           Set-Content -Path $file -Value "Updated at $(Get-Date)"
-          git add $file
-          git commit -m "Update visual snapshots from ${{ inputs.environment }}" || Write-Host "No changes to commit"
+          git add .
 
       # --------------------
-      # Create Pull Request
+      # Commit Only If Changes Exist
+      # --------------------
+      - name: Commit changes if any
+        id: commit_step
+        shell: powershell
+        run: |
+          $changes = git status --porcelain
+          if ($changes) {
+              git commit -m "Update visual snapshots from ${{ inputs.environment }}"
+              echo "changes=true" >> $env:GITHUB_OUTPUT
+          } else {
+              Write-Host "No changes to commit"
+              echo "changes=false" >> $env:GITHUB_OUTPUT
+          }
+
+      # --------------------
+      # Create Pull Request (only if changes exist)
       # --------------------
       - name: Create Pull Request
+        if: steps.commit_step.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
