@@ -36,7 +36,7 @@ jobs:
 
     steps:
       # --------------------
-      # Checkout (clean for self-hosted)
+      # Checkout (clean for self-hosted runner)
       # --------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -83,26 +83,26 @@ jobs:
           }
 
       # --------------------
-      # Create Dummy File (for PR test)
+      # Create Dummy Change
       # --------------------
-       name: Create Dummy Change
-       shell: powershell
-       run: |
-        $file = "test_pr_${{ github.run_id }}.txt"
-    
-        $content = "Environment: ${{ inputs.environment }}`n" +
-                   "Mode: ${{ inputs.update_mode }}`n" +
-                   "Test Path: ${{ inputs.test_path }}`n" +
-                   "Run ID: ${{ github.run_id }}`n" +
-                   "Timestamp: $(Get-Date)"
-    
-        Set-Content -Path $file -Value $content
-    
-        git add .
-        git commit -m "Test PR from ${{ inputs.environment }}"
+      - name: Create Dummy Change
+        shell: powershell
+        run: |
+          $file = "test_pr_${{ github.run_id }}.txt"
+
+          $content = "Environment: ${{ inputs.environment }}`n" +
+                     "Mode: ${{ inputs.update_mode }}`n" +
+                     "Test Path: ${{ inputs.test_path }}`n" +
+                     "Run ID: ${{ github.run_id }}`n" +
+                     "Timestamp: $(Get-Date)"
+
+          Set-Content -Path $file -Value $content
+
+          git add .
+          git commit -m "Test PR from ${{ inputs.environment }}"
 
       # --------------------
-      # Create Pull Request (Simple Version)
+      # Create Pull Request
       # --------------------
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
